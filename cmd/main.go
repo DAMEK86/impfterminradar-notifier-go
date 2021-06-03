@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/damek86/go-impfterminradar-notifier"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -23,7 +24,7 @@ func main() {
 	httpClient := http.Client{
 		Timeout: time.Second * 10,
 	}
-	impfClient := impfterminradar.NewClient(httpClient, cfg.telegramKey, cfg.telegramChatId)
+	impfClient := impfterminradar.NewClient(httpClient)
 	centers, err := impfClient.GetVacationCenters(cfg.center, cfg.radius)
 	if err != nil {
 		fmt.Println(err)
@@ -41,7 +42,7 @@ func main() {
 				found = fmt.Sprintf("%s in %s", vaccine.FriendlyName, vaccine.Center.Name)
 				addressString := fmt.Sprintf("%s\n%s %s\n\nvisit %s",
 					vaccine.Center.Address, vaccine.Center.Zip, vaccine.Center.City, vaccine.Center.BaseUrl)
-				impfClient.SendMessage(
+				SendTelegramMessage(cfg,
 					fmt.Sprintf("<b>%s available!</b>\n%s", vaccine.FriendlyName, addressString))
 			}
 		}
@@ -92,5 +93,23 @@ func getCfg() *Cfg {
 		delay:          delay,
 		telegramKey:    telegramKey,
 		telegramChatId: telegramChatId,
+	}
+}
+
+func SendTelegramMessage(cfg *Cfg, msg string) {
+	if cfg.telegramKey == "" || cfg.telegramChatId == "" {
+		fmt.Println("telegram parameters not set - skip telegram send")
+		fmt.Println(msg)
+		return
+	}
+	data := url.Values{
+		"chat_id":    {cfg.telegramChatId},
+		"text":       {msg},
+		"parse_mode": {"html"},
+	}
+
+	_, err := http.PostForm(fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", cfg.telegramKey), data)
+	if err != nil {
+		fmt.Println(err)
 	}
 }

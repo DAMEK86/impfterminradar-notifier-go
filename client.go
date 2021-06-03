@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 )
 
 type Vaccines struct {
@@ -53,20 +52,15 @@ const (
 type Client interface {
 	GetVacationCenters(center string, radius int) (centers []VaccinationCenter, err error)
 	GetVaccinesIn(centers []VaccinationCenter) (availableVaccines []AvailableVaccines, err error)
-	SendMessage(msg string)
 }
 
 type client struct {
-	httpClient     http.Client
-	telegramChatId string
-	telegramKey    string
+	httpClient http.Client
 }
 
-func NewClient(httpClient http.Client, telegramKey, telegramChatId string) Client {
+func NewClient(httpClient http.Client) Client {
 	return &client{
-		httpClient:     httpClient,
-		telegramKey:    telegramKey,
-		telegramChatId: telegramChatId,
+		httpClient: httpClient,
 	}
 }
 
@@ -130,22 +124,4 @@ func (c *client) GetVaccinesIn(centers []VaccinationCenter) (availableVaccines [
 		}
 	}
 	return availableVaccines, nil
-}
-
-func (c *client) SendMessage(msg string) {
-	if c.telegramKey == "" || c.telegramChatId == "" {
-		fmt.Println("telegram parameters not set - skip telegram send")
-		fmt.Println(msg)
-		return
-	}
-	data := url.Values{
-		"chat_id":    {c.telegramChatId},
-		"text":       {msg},
-		"parse_mode": {"html"},
-	}
-
-	_, err := http.PostForm(fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", c.telegramKey), data)
-	if err != nil {
-		fmt.Println(err)
-	}
 }
