@@ -1,4 +1,4 @@
-package impfterminradar
+package pkg
 
 import (
 	"bytes"
@@ -111,17 +111,19 @@ func (c *client) GetVaccinesIn(centers []VaccinationCenter) (availableVaccines [
 		return nil, err
 	}
 
-	if availableVaccines != nil {
-		for i := range availableVaccines {
-			for _, center := range centers {
-				name := center.GetVaccineNameBySlug(availableVaccines[i].Slug)
-				if name != "" {
-					availableVaccines[i].FriendlyName = name
-					availableVaccines[i].Center = center
-					break
-				}
-			}
-		}
+	for i := range availableVaccines {
+		setName(centers, &availableVaccines[i])
 	}
 	return availableVaccines, nil
+}
+
+func setName(centers []VaccinationCenter, availableVaccines *AvailableVaccines) {
+	for _, center := range centers {
+		name := center.GetVaccineNameBySlug(availableVaccines.Slug)
+		if name != "" {
+			availableVaccines.FriendlyName = name
+			availableVaccines.Center = center
+			return
+		}
+	}
 }

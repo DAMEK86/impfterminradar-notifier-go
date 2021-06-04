@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/damek86/go-impfterminradar-notifier"
+	"github.com/damek86/go-impfterminradar-notifier/internal/app"
+	"github.com/damek86/go-impfterminradar-notifier/pkg"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,11 +21,11 @@ type Cfg struct {
 
 func main() {
 	cfg := getCfg()
-
+	go app.StartHealthEndpoint()
 	httpClient := http.Client{
 		Timeout: time.Second * 10,
 	}
-	impfClient := impfterminradar.NewClient(httpClient)
+	impfClient := pkg.NewClient(httpClient)
 	centers, err := impfClient.GetVacationCenters(cfg.center, cfg.radius)
 	if err != nil {
 		fmt.Println(err)
@@ -38,7 +39,7 @@ func main() {
 
 		found := "nothing"
 		for _, vaccine := range vaccines {
-			if !vaccine.Available {
+			if vaccine.Available {
 				found = fmt.Sprintf("%s in %s", vaccine.FriendlyName, vaccine.Center.Name)
 				addressString := fmt.Sprintf("%s\n%s %s\n\nvisit %s",
 					vaccine.Center.Address, vaccine.Center.Zip, vaccine.Center.City, vaccine.Center.BaseUrl)
@@ -53,23 +54,23 @@ func main() {
 }
 
 func getCfg() *Cfg {
-	center, ok := os.LookupEnv("center")
+	center, ok := os.LookupEnv("CENTER_PLZ")
 	if !ok {
-		panic("environment variable `center` not set!")
+		panic("environment variable `CENTER_PLZ` not set!")
 	}
 
-	radiusStr, ok := os.LookupEnv("radius")
+	radiusStr, ok := os.LookupEnv("RADIUS")
 	if !ok {
-		panic("environment variable `radius` not set!")
+		panic("environment variable `RADIUS` not set!")
 	}
 	radius, err := strconv.Atoi(radiusStr)
 	if err != nil {
 		panic(err)
 	}
 
-	delayStr, ok := os.LookupEnv("delay")
+	delayStr, ok := os.LookupEnv("DELAY")
 	if !ok {
-		panic("environment variable `radius` not set!")
+		panic("environment variable `DELAY` not set!")
 	}
 
 	delay, err := time.ParseDuration(delayStr)
@@ -77,14 +78,14 @@ func getCfg() *Cfg {
 		panic(err)
 	}
 
-	telegramKey, ok := os.LookupEnv("telegram_key")
+	telegramKey, ok := os.LookupEnv("TELEGRAM_KEY")
 	if !ok {
-		fmt.Println("Warning: environment variable `telegram_key` not set!")
+		fmt.Println("Warning: environment variable `TELEGRAM_KEY` not set!")
 	}
 
-	telegramChatId, ok := os.LookupEnv("telegram_chat_id")
+	telegramChatId, ok := os.LookupEnv("TELEGRAM_CHAT_ID")
 	if !ok {
-		fmt.Println("Warning: environment variable `telegram_chat_id` not set!")
+		fmt.Println("Warning: environment variable `TELEGRAM_CHAT_ID` not set!")
 	}
 
 	return &Cfg{
