@@ -7,40 +7,38 @@ import (
 	"net/http"
 )
 
-type Vaccines struct {
-	Id   string `json:"ID"`
-	Slug string `json:"Slug"`
+type Vaccine struct {
+	Id          string `json:"ID"`
+	Slug        string `json:"Slug"`
+	Available   bool   `json:"Available"`
+	NoBooking   bool   `json:"NoBooking"`
+	Time        int64  `json:"Time"`
+	Unknown     bool   `json:"Unknown"`
+	WaitingRoom bool   `json:"WaitingRoom"`
 }
 
 type VaccinationCenter struct {
-	Name     string     `json:"Zentrumsname"`
-	Zip      string     `json:"PLZ"`
-	City     string     `json:"Ort"`
-	State    string     `json:"BundeslandRealName"`
-	BaseUrl  string     `json:"BookingURL"`
-	Address  string     `json:"Adress"`
-	Slug     string     `json:"Slug"`
-	Vaccines []Vaccines `json:"Vaccines"`
+	Name     string    `json:"Zentrumsname"`
+	Zip      string    `json:"PLZ"`
+	City     string    `json:"Ort"`
+	State    string    `json:"BundeslandRealName"`
+	BaseUrl  string    `json:"BookingURL"`
+	Address  string    `json:"Adress"`
+	Slug     string    `json:"Slug"`
+	Vaccines []Vaccine `json:"Vaccines"`
 }
 
-func (v *VaccinationCenter) GetVaccineNameBySlug(slug string) string {
-	for _, vaccine := range v.Vaccines {
-		if vaccine.Slug == slug {
-			return vaccine.Id
+func (c *VaccinationCenter) UpdateVaccineOnMatch(v Vaccine) {
+	for i := range c.Vaccines {
+		if c.Vaccines[i].Slug == v.Slug {
+			c.Vaccines[i].Available = v.Available
+			c.Vaccines[i].NoBooking = v.NoBooking
+			c.Vaccines[i].Time = v.Time
+			c.Vaccines[i].Unknown = v.Unknown
+			c.Vaccines[i].WaitingRoom = v.WaitingRoom
+			break
 		}
 	}
-	return ""
-}
-
-type AvailableVaccines struct {
-	Available    bool   `json:"Available"`
-	NoBooking    bool   `json:"NoBooking"`
-	Slug         string `json:"Slug"`
-	Time         int64  `json:"Time"`
-	Unknown      bool   `json:"Unknown"`
-	WaitingRoom  bool   `json:"WaitingRoom"`
-	FriendlyName string
-	Center       VaccinationCenter
 }
 
 const (
@@ -50,8 +48,8 @@ const (
 )
 
 type Client interface {
-	GetVacationCenters(center string, radius int) (centers []VaccinationCenter, err error)
-	GetVaccinesIn(centers []VaccinationCenter) (availableVaccines []AvailableVaccines, err error)
+	GetVacationCenters(zip string, radius int) (centers []VaccinationCenter, err error)
+	UpdateVaccinesIn(centers []VaccinationCenter) error
 }
 
 type client struct {
@@ -64,8 +62,8 @@ func NewClient(httpClient http.Client) Client {
 	}
 }
 
-func (c *client) GetVacationCenters(center string, radius int) (centers []VaccinationCenter, err error) {
-	reqUrl := baseUrl + fmt.Sprintf(centersEndpoint, center, radius)
+func (c *client) GetVacationCenters(zip string, radius int) (centers []VaccinationCenter, err error) {
+	reqUrl := baseUrl + fmt.Sprintf(centersEndpoint, zip, radius)
 	req, err := http.NewRequest(http.MethodGet, reqUrl, nil)
 	if err != nil {
 		return nil, err
@@ -81,7 +79,7 @@ func (c *client) GetVacationCenters(center string, radius int) (centers []Vaccin
 	return centers, err
 }
 
-func (c *client) GetVaccinesIn(centers []VaccinationCenter) (availableVaccines []AvailableVaccines, err error) {
+func (c *client) UpdateVaccinesIn(centers []VaccinationCenter) error {
 	reqUrl := baseUrl + availabilityEndpoint
 	requestVaccines := make([]string, 0)
 	for _, center := range centers {
@@ -92,38 +90,30 @@ func (c *client) GetVaccinesIn(centers []VaccinationCenter) (availableVaccines [
 
 	requestBody, err := json.Marshal(requestVaccines)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	req, err := http.NewRequest(http.MethodPatch, reqUrl, bytes.NewBuffer(requestBody))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req.Header.Set("content-type", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer resp.Body.Close()
-	err = json.NewDecoder(resp.Body).Decode(&availableVaccines)
+	vaccines := make([]Vaccine, 0)
+	err = json.NewDecoder(resp.Body).Decode(&vaccines)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	for i := range availableVaccines {
-		setName(centers, &availableVaccines[i])
-	}
-	return availableVaccines, nil
-}
-
-func setName(centers []VaccinationCenter, availableVaccines *AvailableVaccines) {
-	for _, center := range centers {
-		name := center.GetVaccineNameBySlug(availableVaccines.Slug)
-		if name != "" {
-			availableVaccines.FriendlyName = name
-			availableVaccines.Center = center
-			return
+	for i := range vaccines {
+		for _, center := range centers {
+			center.UpdateVaccineOnMatch(vaccines[i])
 		}
 	}
+	return nil
 }

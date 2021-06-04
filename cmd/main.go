@@ -12,7 +12,7 @@ import (
 )
 
 type Cfg struct {
-	center         string
+	zip            string
 	radius         int
 	delay          time.Duration
 	telegramKey    string
@@ -26,25 +26,27 @@ func main() {
 		Timeout: time.Second * 10,
 	}
 	impfClient := pkg.NewClient(httpClient)
-	centers, err := impfClient.GetVacationCenters(cfg.center, cfg.radius)
+	centers, err := impfClient.GetVacationCenters(cfg.zip, cfg.radius)
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	for {
-		vaccines, err := impfClient.GetVaccinesIn(centers)
+		err := impfClient.UpdateVaccinesIn(centers)
 		if err != nil {
 			fmt.Println(err)
 		}
 
 		found := "nothing"
-		for _, vaccine := range vaccines {
-			if vaccine.Available {
-				found = fmt.Sprintf("%s in %s", vaccine.FriendlyName, vaccine.Center.Name)
-				addressString := fmt.Sprintf("%s\n%s %s\n\nvisit %s",
-					vaccine.Center.Address, vaccine.Center.Zip, vaccine.Center.City, vaccine.Center.BaseUrl)
-				SendTelegramMessage(cfg,
-					fmt.Sprintf("<b>%s available!</b>\n%s", vaccine.FriendlyName, addressString))
+		for _, center := range centers {
+			for _, vaccine := range center.Vaccines {
+				if vaccine.Available {
+					found = fmt.Sprintf("%s in %s", vaccine.Id, center.Name)
+					addressString := fmt.Sprintf("%s\n%s %s\n\nvisit %s",
+						center.Address, center.Zip, center.City, center.BaseUrl)
+					SendTelegramMessage(cfg,
+						fmt.Sprintf("<b>%s available!</b>\n%s", vaccine.Id, addressString))
+				}
 			}
 		}
 
@@ -54,9 +56,9 @@ func main() {
 }
 
 func getCfg() *Cfg {
-	center, ok := os.LookupEnv("CENTER_PLZ")
+	zip, ok := os.LookupEnv("ZIP_CODE")
 	if !ok {
-		panic("environment variable `CENTER_PLZ` not set!")
+		panic("environment variable `ZIP_CODE` not set!")
 	}
 
 	radiusStr, ok := os.LookupEnv("RADIUS")
@@ -89,7 +91,7 @@ func getCfg() *Cfg {
 	}
 
 	return &Cfg{
-		center:         center,
+		zip:            zip,
 		radius:         radius,
 		delay:          delay,
 		telegramKey:    telegramKey,

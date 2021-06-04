@@ -25,8 +25,8 @@ ports:
     containerPort: 8080
     protocol: TCP
 env:
-- name: CENTER_PLZ
-    value: "<PLZ>"
+- name: ZIP_CODE
+    value: "<ZIP>"
 - name: RADIUS
     value: "<Radius in km>"
 - name: DELAY
