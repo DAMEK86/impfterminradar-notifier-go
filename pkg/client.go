@@ -42,7 +42,7 @@ func (c *VaccinationCenter) UpdateVaccineOnMatch(v Vaccine) {
 }
 
 const (
-	baseUrl              = "https://impfterminradar.de/api/"
+	baseUrl              = "https://www.impfterminradar.de/api/"
 	availabilityEndpoint = "vaccinations/availability"
 	centersEndpoint      = "centers?PLZ=%s&Radius=%d"
 )
